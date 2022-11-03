@@ -27,6 +27,8 @@ import (
 type SchedulingV1alpha1Interface interface {
 	RESTClient() rest.Interface
 	DevicesGetter
+	PodMigrationJobsGetter
+	ReservationsGetter
 }
 
 // SchedulingV1alpha1Client is used to interact with features provided by the scheduling group.
@@ -36,6 +38,14 @@ type SchedulingV1alpha1Client struct {
 
 func (c *SchedulingV1alpha1Client) Devices() DeviceInterface {
 	return newDevices(c)
+}
+
+func (c *SchedulingV1alpha1Client) PodMigrationJobs() PodMigrationJobInterface {
+	return newPodMigrationJobs(c)
+}
+
+func (c *SchedulingV1alpha1Client) Reservations() ReservationInterface {
+	return newReservations(c)
 }
 
 // NewForConfig creates a new SchedulingV1alpha1Client for the given config.

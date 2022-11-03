@@ -5,8 +5,8 @@ API_PATHS_MAP=(
     "apis/config:config"
     "apis/runtime:runtime"
     "apis/slo:slo"
-    #"apis/extension:extension"
-    #"apis/scheduling:scheduling"
+    "apis/extension:extension"
+    "apis/scheduling:scheduling"
 )
 
 help() {
