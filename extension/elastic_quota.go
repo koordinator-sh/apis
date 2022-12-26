@@ -25,7 +25,7 @@ import (
 	"sigs.k8s.io/scheduler-plugins/pkg/apis/scheduling/v1alpha1"
 )
 
-//RootQuotaName means quotaTree's root\head.
+// RootQuotaName means quotaTree's root\head.
 const (
 	SystemQuotaName        = "system"
 	RootQuotaName          = "root"
