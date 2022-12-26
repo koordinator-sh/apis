@@ -23,8 +23,26 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+type AggregationType string
+
+const (
+	// max is not welcomed since it may import outliers
+	AVG AggregationType = "avg"
+	P99 AggregationType = "p99"
+	P95 AggregationType = "p95"
+	P90 AggregationType = "p90"
+	P50 AggregationType = "p50"
+)
+
 type NodeMetricInfo struct {
 	NodeUsage ResourceMap `json:"nodeUsage,omitempty"`
+	// AggregatedNodeUsages will report only if there are enough samples
+	AggregatedNodeUsages []AggregatedUsage `json:"aggregatedNodeUsages,omitempty"`
+}
+
+type AggregatedUsage struct {
+	Usage    map[AggregationType]ResourceMap `json:"usage,omitempty"`
+	Duration metav1.Duration                 `json:"duration,omitempty"`
 }
 
 type PodMetricInfo struct {
@@ -45,6 +63,12 @@ type NodeMetricCollectPolicy struct {
 	AggregateDurationSeconds *int64 `json:"aggregateDurationSeconds,omitempty"`
 	// ReportIntervalSeconds represents the report period in seconds
 	ReportIntervalSeconds *int64 `json:"reportIntervalSeconds,omitempty"`
+	// NodeAggregatePolicy represents the target grain of node aggregated usage
+	NodeAggregatePolicy *AggregatePolicy `json:"nodeAggregatePolicy,omitempty"`
+}
+
+type AggregatePolicy struct {
+	Durations []metav1.Duration `json:"durations,omitempty"`
 }
 
 // NodeMetricStatus defines the observed state of NodeMetric

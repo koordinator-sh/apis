@@ -4,7 +4,7 @@ go 1.17
 
 require (
 	github.com/golang/protobuf v1.5.2
-	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826
+	github.com/mohae/deepcopy v0.0.0-20170603005431-491d3605edfb
 	google.golang.org/grpc v1.38.0
 	google.golang.org/protobuf v1.28.0
 	k8s.io/api v0.22.6
