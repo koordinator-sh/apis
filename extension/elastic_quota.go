@@ -27,9 +27,9 @@ import (
 
 // RootQuotaName means quotaTree's root\head.
 const (
-	SystemQuotaName        = "system"
-	RootQuotaName          = "root"
-	DefaultQuotaName       = "default"
+	SystemQuotaName        = "koordinator-system-quota"
+	RootQuotaName          = "koordinator-root-quota"
+	DefaultQuotaName       = "koordinator-default-quota"
 	QuotaKoordinatorPrefix = "quota.scheduling.koordinator.sh"
 	LabelQuotaIsParent     = QuotaKoordinatorPrefix + "/is-parent"
 	LabelQuotaParent       = QuotaKoordinatorPrefix + "/parent"
