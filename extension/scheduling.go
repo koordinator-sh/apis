@@ -22,20 +22,9 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 
 	schedulingv1alpha1 "github.com/koordinator-sh/apis/scheduling/v1alpha1"
 	slov1alpha1 "github.com/koordinator-sh/apis/slo/v1alpha1"
-)
-
-const (
-	// LabelReservationOrder controls the preference logic for Reservation.
-	// Reservation with lower order is preferred to be selected before Reservation with higher order.
-	// But if it is 0, Reservation will be selected according to the capacity score.
-	LabelReservationOrder = SchedulingDomainPrefix + "/reservation-order"
-
-	// AnnotationReservationAllocated represents the reservation allocated by the pod.
-	AnnotationReservationAllocated = SchedulingDomainPrefix + "/reservation-allocated"
 )
 
 const (
@@ -78,6 +67,13 @@ const (
 	GangModeNonStrict = "NonStrict"
 )
 
+const (
+	// Deprecated: kubernetes-sigs/scheduler-plugins/lightweight-coscheduling
+	LabelLightweightCoschedulingPodGroupName = "pod-group.scheduling.sigs.k8s.io/name"
+	// Deprecated: kubernetes-sigs/scheduler-plugins/lightweight-coscheduling
+	LabelLightweightCoschedulingPodGroupMinAvailable = "pod-group.scheduling.sigs.k8s.io/min-available"
+)
+
 // CustomUsageThresholds supports user-defined node resource utilization thresholds.
 type CustomUsageThresholds struct {
 	// UsageThresholds indicates the resource utilization threshold of the whole machine.
@@ -110,51 +106,6 @@ func GetCustomUsageThresholds(node *corev1.Node) (*CustomUsageThresholds, error)
 	return usageThresholds, nil
 }
 
-type ReservationAllocated struct {
-	Name string    `json:"name,omitempty"`
-	UID  types.UID `json:"uid,omitempty"`
-}
-
-func GetReservationAllocated(pod *corev1.Pod) (*ReservationAllocated, error) {
-	if pod.Annotations == nil {
-		return nil, nil
-	}
-	data, ok := pod.Annotations[AnnotationReservationAllocated]
-	if !ok {
-		return nil, nil
-	}
-	reservationAllocated := &ReservationAllocated{}
-	err := json.Unmarshal([]byte(data), reservationAllocated)
-	if err != nil {
-		return nil, err
-	}
-	return reservationAllocated, nil
-}
-
-func SetReservationAllocated(pod *corev1.Pod, r *schedulingv1alpha1.Reservation) {
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
-	}
-	reservationAllocated := &ReservationAllocated{
-		Name: r.Name,
-		UID:  r.UID,
-	}
-	data, _ := json.Marshal(reservationAllocated) // assert no error
-	pod.Annotations[AnnotationReservationAllocated] = string(data)
-}
-
-func RemoveReservationAllocated(pod *corev1.Pod, r *schedulingv1alpha1.Reservation) (bool, error) {
-	reservationAllocated, err := GetReservationAllocated(pod)
-	if err != nil {
-		return false, err
-	}
-	if reservationAllocated != nil && reservationAllocated.Name == r.Name && reservationAllocated.UID == r.UID {
-		delete(pod.Annotations, AnnotationReservationAllocated)
-		return true, nil
-	}
-	return false, nil
-}
-
 // DeviceAllocations would be injected into Pod as form of annotation during Pre-bind stage.
 /*
 {
@@ -183,9 +134,10 @@ type DeviceAllocations map[schedulingv1alpha1.DeviceType][]*DeviceAllocation
 type DeviceAllocation struct {
 	Minor     int32               `json:"minor"`
 	Resources corev1.ResourceList `json:"resources"`
+	Extension json.RawMessage     `json:"extension,omitempty"`
 }
 
-func GetDeviceAllocations(podAnnotations map[string]string) (DeviceAllocations, error) {
+var GetDeviceAllocations = func(podAnnotations map[string]string) (DeviceAllocations, error) {
 	deviceAllocations := DeviceAllocations{}
 	data, ok := podAnnotations[AnnotationDeviceAllocated]
 	if !ok {
@@ -198,9 +150,10 @@ func GetDeviceAllocations(podAnnotations map[string]string) (DeviceAllocations, 
 	return deviceAllocations, nil
 }
 
-func SetDeviceAllocations(pod *corev1.Pod, allocations DeviceAllocations) error {
-	if pod.Annotations == nil {
-		pod.Annotations = map[string]string{}
+func SetDeviceAllocations(obj metav1.Object, allocations DeviceAllocations) error {
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
 	}
 
 	data, err := json.Marshal(allocations)
@@ -208,7 +161,8 @@ func SetDeviceAllocations(pod *corev1.Pod, allocations DeviceAllocations) error 
 		return err
 	}
 
-	pod.Annotations[AnnotationDeviceAllocated] = string(data)
+	annotations[AnnotationDeviceAllocated] = string(data)
+	obj.SetAnnotations(annotations)
 	return nil
 }
 
