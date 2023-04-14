@@ -12,7 +12,8 @@ require (
 	k8s.io/apiserver v0.22.6
 	k8s.io/client-go v0.22.6
 	k8s.io/code-generator v0.22.6
-	sigs.k8s.io/scheduler-plugins v0.0.0-00010101000000-000000000000
+	k8s.io/klog/v2 v2.80.1
+	sigs.k8s.io/scheduler-plugins v0.22.6
 )
 
 require (
@@ -62,7 +63,6 @@ require (
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/component-base v0.22.6 // indirect
 	k8s.io/gengo v0.0.0-20210813121822-485abfe95c7c // indirect
-	k8s.io/klog/v2 v2.80.1 // indirect
 	k8s.io/kube-openapi v0.0.0-20220803162953-67bda5d908f1 // indirect
 	k8s.io/utils v0.0.0-20210819203725-bdf08cb9a70a // indirect
 	sigs.k8s.io/structured-merge-diff/v4 v4.2.3 // indirect
@@ -70,7 +70,6 @@ require (
 )
 
 replace (
-	github.com/google/cadvisor => github.com/koordinator-sh/cadvisor v0.0.0-20220919031936-833eb74e858e
 	k8s.io/api => k8s.io/api v0.22.6
 	k8s.io/apiextensions-apiserver => k8s.io/apiextensions-apiserver v0.22.6
 	k8s.io/apimachinery => k8s.io/apimachinery v0.22.6
