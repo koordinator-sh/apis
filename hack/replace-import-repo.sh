@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 function custom_sed(){
     perl -i -pe $@
 }
