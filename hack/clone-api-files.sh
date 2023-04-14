@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 # Define the relative path of API src and dst
 API_PATHS_MAP=(
     "apis/config:config"
@@ -23,8 +25,10 @@ fi
 
 TEMP_DIR=$(mktemp -d)
 cleanup() {
+    rv=$?
     echo ">> Removing ${TEMP_DIR}"
     rm -rf ${TEMP_DIR}
+    exit $rv
 }
 trap "cleanup" EXIT SIGINT
 
@@ -41,7 +45,6 @@ function copy_api_files() {
     dst_path=$2
     echo ">> copy api files from" ${src_path} "to" ${dst_path} "excludes zz_generated*.go and *_test.go"
     api_files_src_path="$( find ${src_path} -type f \( -name "*.go" -and ! -name "zz_generated*.go" -and ! -name "*_test.go" \) )"
-    echo ${api_files_src_path}
     for api_file_src_path in ${api_files_src_path};
     do
         file_relative_path=${api_file_src_path#${src_path}}
@@ -54,6 +57,25 @@ function copy_api_files() {
     done
 }
 
+# rm api files from ${latest_path} if file not exist in ${current_path} excludes zz_generated*.go and *_test.go
+# $1: latest api files full dir path: koordinator-sh/koordinator/api/slo
+# $2: current api files full dir path, e.g. koordinator-sh/api/slo
+function remove_outdated_api_files() {
+    latest_path=$1
+    current_path=$2
+    echo ">> rm api files from" ${current_path} "in not exist in" ${latest_path} "excludes zz_generated*.go and *_test.go"
+    api_files_current_path="$( find ${current_path} -type f \( -name "*.go" -and ! -name "zz_generated*.go" -and ! -name "*_test.go" \) )"
+    for api_file_current_path in ${api_files_current_path};
+    do
+        file_relative_path=${api_file_current_path#${current_path}}
+        latest_file_path="${latest_path}/${file_relative_path}"
+        if [ ! -f ${latest_file_path} ]; then
+            echo ">> checking api file" ${api_file_current_path} "not exist in" ${latest_path} ", will be removed"
+            git rm -f --ignore-unmatch "${api_file_current_path}"
+        fi
+    done
+}
+
 API_REPO_DIR=$( cd $(dirname $0)/..; pwd )
 
 echo ">> copy apis files from" ${KOORDINATOR_REPO_DIR}
@@ -62,4 +84,5 @@ do
     src_relative_path="${api_path_pair%%:*}"
     dst_relative_path="${api_path_pair##*:}"
     copy_api_files ${KOORDINATOR_REPO_DIR}/${src_relative_path} ${API_REPO_DIR}/${dst_relative_path}
+    remove_outdated_api_files ${KOORDINATOR_REPO_DIR}/${src_relative_path} ${API_REPO_DIR}/${dst_relative_path}
 done
