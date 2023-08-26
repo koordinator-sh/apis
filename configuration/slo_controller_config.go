@@ -14,7 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-package extension
+package configuration
 
 import (
 	"github.com/mohae/deepcopy"
@@ -43,7 +43,7 @@ type NodeCfgProfile struct {
 // +k8s:deepcopy-gen=true
 type ColocationCfg struct {
 	ColocationStrategy `json:",inline"`
-	NodeConfigs        []NodeColocationCfg `json:"nodeConfigs,omitempty"`
+	NodeConfigs        []NodeColocationCfg `json:"nodeConfigs,omitempty" validate:"dive"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -55,7 +55,7 @@ type NodeColocationCfg struct {
 // +k8s:deepcopy-gen=true
 type ResourceThresholdCfg struct {
 	ClusterStrategy *slov1alpha1.ResourceThresholdStrategy `json:"clusterStrategy,omitempty"`
-	NodeStrategies  []NodeResourceThresholdStrategy        `json:"nodeStrategies,omitempty"`
+	NodeStrategies  []NodeResourceThresholdStrategy        `json:"nodeStrategies,omitempty" validate:"dive"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -73,7 +73,7 @@ type NodeCPUBurstCfg struct {
 // +k8s:deepcopy-gen=true
 type CPUBurstCfg struct {
 	ClusterStrategy *slov1alpha1.CPUBurstStrategy `json:"clusterStrategy,omitempty"`
-	NodeStrategies  []NodeCPUBurstCfg             `json:"nodeStrategies,omitempty"`
+	NodeStrategies  []NodeCPUBurstCfg             `json:"nodeStrategies,omitempty" validate:"dive"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -85,13 +85,13 @@ type NodeSystemStrategy struct {
 // +k8s:deepcopy-gen=true
 type SystemCfg struct {
 	ClusterStrategy *slov1alpha1.SystemStrategy `json:"clusterStrategy,omitempty"`
-	NodeStrategies  []NodeSystemStrategy        `json:"nodeStrategies,omitempty"`
+	NodeStrategies  []NodeSystemStrategy        `json:"nodeStrategies,omitempty" validate:"dive"`
 }
 
 // +k8s:deepcopy-gen=true
 type ResourceQOSCfg struct {
 	ClusterStrategy *slov1alpha1.ResourceQOSStrategy `json:"clusterStrategy,omitempty"`
-	NodeStrategies  []NodeResourceQOSStrategy        `json:"nodeStrategies,omitempty"`
+	NodeStrategies  []NodeResourceQOSStrategy        `json:"nodeStrategies,omitempty" validate:"dive"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -196,16 +196,25 @@ func (in *ExtraFields) DeepCopy() *ExtraFields {
 // +k8s:deepcopy-gen=true
 type ColocationStrategy struct {
 	Enable                         *bool                        `json:"enable,omitempty"`
-	MetricAggregateDurationSeconds *int64                       `json:"metricAggregateDurationSeconds,omitempty"`
-	MetricReportIntervalSeconds    *int64                       `json:"metricReportIntervalSeconds,omitempty"`
+	MetricAggregateDurationSeconds *int64                       `json:"metricAggregateDurationSeconds,omitempty" validate:"omitempty,min=1"`
+	MetricReportIntervalSeconds    *int64                       `json:"metricReportIntervalSeconds,omitempty" validate:"omitempty,min=1"`
 	MetricAggregatePolicy          *slov1alpha1.AggregatePolicy `json:"metricAggregatePolicy,omitempty"`
-	CPUReclaimThresholdPercent     *int64                       `json:"cpuReclaimThresholdPercent,omitempty"`
-	MemoryReclaimThresholdPercent  *int64                       `json:"memoryReclaimThresholdPercent,omitempty"`
-	MemoryCalculatePolicy          *CalculatePolicy             `json:"memoryCalculatePolicy,omitempty"`
-	DegradeTimeMinutes             *int64                       `json:"degradeTimeMinutes,omitempty"`
-	UpdateTimeThresholdSeconds     *int64                       `json:"updateTimeThresholdSeconds,omitempty"`
-	ResourceDiffThreshold          *float64                     `json:"resourceDiffThreshold,omitempty"`
-	ColocationStrategyExtender     `json:",inline"`             // for third-party extension
+
+	CPUReclaimThresholdPercent    *int64           `json:"cpuReclaimThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
+	MemoryReclaimThresholdPercent *int64           `json:"memoryReclaimThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
+	MemoryCalculatePolicy         *CalculatePolicy `json:"memoryCalculatePolicy,omitempty"`
+	DegradeTimeMinutes            *int64           `json:"degradeTimeMinutes,omitempty" validate:"omitempty,min=1"`
+	UpdateTimeThresholdSeconds    *int64           `json:"updateTimeThresholdSeconds,omitempty" validate:"omitempty,min=1"`
+	ResourceDiffThreshold         *float64         `json:"resourceDiffThreshold,omitempty" validate:"omitempty,gt=0,max=1"`
+
+	// MidCPUThresholdPercent defines the maximum percentage of the Mid-tier cpu resource dividing the node allocatable.
+	// MidCPUAllocatable <= NodeCPUAllocatable * MidCPUThresholdPercent / 100.
+	MidCPUThresholdPercent *int64 `json:"midCPUThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
+	// MidMemoryThresholdPercent defines the maximum percentage of the Mid-tier memory resource dividing the node allocatable.
+	// MidMemoryAllocatable <= NodeMemoryAllocatable * MidMemoryThresholdPercent / 100.
+	MidMemoryThresholdPercent *int64 `json:"midMemoryThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
+
+	ColocationStrategyExtender `json:",inline"` // for third-party extension
 }
 
 /*
@@ -363,11 +372,48 @@ data:
             "priority": 0,
             "oomKillGroup": 0
           },
+          "blkioQOS": {
+            "blocks": [
+              {
+                "ioCfg": {
+                  "ioWeightPercent": 60
+                },
+                "name": "ackdistro-pool",
+                "type": "volumegroup"
+              },
+              {
+                "ioCfg": {
+                  "readBPS": 102400000,
+                  "readIOPS": 20480,
+                  "writeBPS": 204800004,
+                  "writeIOPS": 10240
+                },
+                "name": "/dev/sdb",
+                "type": "device"
+              },
+            ],
+            "enable": true
+          },
           "resctrlQOS": {
             "enable": false,
             "catRangeStartPercent": 0,
             "catRangeEndPercent": 30,
             "mbaPercent": 100
+          }
+        },
+        "cgroupRoot": {
+          "blkioQOS": {
+            "blocks": [
+              {
+                "ioCfg": {
+                  "readLatency": 3000,
+                  "writeLatency": 3000
+                },
+                "name": "ackdistro-pool",
+                "type": "volumegroup"
+              }
+            ],
+            "enable": true
           }
         }
       },

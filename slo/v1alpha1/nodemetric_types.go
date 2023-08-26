@@ -17,32 +17,28 @@ limitations under the License.
 package v1alpha1
 
 import (
+	apiext "github.com/koordinator-sh/apis/extension"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
-type AggregationType string
-
-const (
-	// max is not welcomed since it may import outliers
-	AVG AggregationType = "avg"
-	P99 AggregationType = "p99"
-	P95 AggregationType = "p95"
-	P90 AggregationType = "p90"
-	P50 AggregationType = "p50"
-)
-
 type NodeMetricInfo struct {
+	// NodeUsage is the total resource usage of node
 	NodeUsage ResourceMap `json:"nodeUsage,omitempty"`
 	// AggregatedNodeUsages will report only if there are enough samples
 	AggregatedNodeUsages []AggregatedUsage `json:"aggregatedNodeUsages,omitempty"`
+	// SystemUsage is the resource usage of daemon processes and OS kernel, calculated by `NodeUsage - sum(podUsage)`
+	SystemUsage ResourceMap `json:"systemUsage,omitempty"`
+	// AggregatedSystemUsages will report only if there are enough samples
+	// Deleted pods will be excluded during aggregation
+	AggregatedSystemUsages []AggregatedUsage `json:"aggregatedSystemUsages,omitempty"`
 }
 
 type AggregatedUsage struct {
-	Usage    map[AggregationType]ResourceMap `json:"usage,omitempty"`
-	Duration metav1.Duration                 `json:"duration,omitempty"`
+	Usage    map[apiext.AggregationType]ResourceMap `json:"usage,omitempty"`
+	Duration metav1.Duration                        `json:"duration,omitempty"`
 }
 
 type PodMetricInfo struct {
@@ -73,6 +69,12 @@ type AggregatePolicy struct {
 	Durations []metav1.Duration `json:"durations,omitempty"`
 }
 
+// ReclaimableMetric defines the reclaimable metric of resource priority
+type ReclaimableMetric struct {
+	// Resource is the resource usage of the prediction
+	Resource ResourceMap `json:"resource,omitempty"`
+}
+
 // NodeMetricStatus defines the observed state of NodeMetric
 type NodeMetricStatus struct {
 	// UpdateTime is the last time this NodeMetric was updated.
@@ -83,6 +85,9 @@ type NodeMetricStatus struct {
 
 	// PodsMetric contains the metrics for pods belong to this node.
 	PodsMetric []*PodMetricInfo `json:"podsMetric,omitempty"`
+
+	// ProdReclaimableMetric is the indicator statistics of Prod type resources reclaimable
+	ProdReclaimableMetric *ReclaimableMetric `json:"prodReclaimableMetric,omitempty"`
 }
 
 // +genclient

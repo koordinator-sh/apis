@@ -26,8 +26,11 @@ import (
 const (
 	BatchCPU    corev1.ResourceName = ResourceDomainPrefix + "batch-cpu"
 	BatchMemory corev1.ResourceName = ResourceDomainPrefix + "batch-memory"
+	MidCPU      corev1.ResourceName = ResourceDomainPrefix + "mid-cpu"
+	MidMemory   corev1.ResourceName = ResourceDomainPrefix + "mid-memory"
 
 	ResourceNvidiaGPU      corev1.ResourceName = "nvidia.com/gpu"
+	ResourceHygonDCU       corev1.ResourceName = "dcu.com/gpu"
 	ResourceRDMA           corev1.ResourceName = DomainPrefix + "rdma"
 	ResourceFPGA           corev1.ResourceName = DomainPrefix + "fpga"
 	ResourceGPU            corev1.ResourceName = DomainPrefix + "gpu"
@@ -60,6 +63,10 @@ var (
 		PriorityBatch: {
 			corev1.ResourceCPU:    BatchCPU,
 			corev1.ResourceMemory: BatchMemory,
+		},
+		PriorityMid: {
+			corev1.ResourceCPU:    MidCPU,
+			corev1.ResourceMemory: MidMemory,
 		},
 	}
 )
@@ -140,6 +147,20 @@ func GetResourceSpec(annotations map[string]string) (*ResourceSpec, error) {
 		return nil, err
 	}
 	return resourceSpec, nil
+}
+
+func SetResourceSpec(obj metav1.Object, spec *ResourceSpec) error {
+	data, err := json.Marshal(spec)
+	if err != nil {
+		return err
+	}
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[AnnotationResourceSpec] = string(data)
+	obj.SetAnnotations(annotations)
+	return nil
 }
 
 // GetResourceStatus parses ResourceStatus from annotations

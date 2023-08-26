@@ -29,6 +29,21 @@ const (
 
 	LabelPodQoS      = DomainPrefix + "qosClass"
 	LabelPodPriority = DomainPrefix + "priority"
+	// LabelPodPriorityClass is used to revise those Pods that are already running and have Priority set, so that
+	// Koordinator can be smoothly deployed to the running cluster. If you don't have a running Pod with
+	// PriorityClass set, don't set this field specifically.
+	LabelPodPriorityClass = DomainPrefix + "priority-class"
 
 	LabelManagedBy = "app.kubernetes.io/managed-by"
+)
+
+type AggregationType string
+
+const (
+	// max is not welcomed since it may import outliers
+	AVG AggregationType = "avg"
+	P99 AggregationType = "p99"
+	P95 AggregationType = "p95"
+	P90 AggregationType = "p90"
+	P50 AggregationType = "p50"
 )
