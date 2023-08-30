@@ -5,8 +5,10 @@ set -e
 # Define the relative path of API src and dst
 API_PATHS_MAP=(
     "apis/config:config"
+    "apis/configuration:configuration"
     "apis/runtime:runtime"
     "apis/slo:slo"
+    "apis/scheme:scheme"
     "apis/extension:extension"
     "apis/scheduling:scheduling"
 )

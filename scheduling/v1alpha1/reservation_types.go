@@ -61,8 +61,34 @@ type ReservationSpec struct {
 	// and are not allocatable to other owners anymore. Defaults to true.
 	// +kubebuilder:default=true
 	// +optional
-	AllocateOnce bool `json:"allocateOnce,omitempty"`
+	AllocateOnce *bool `json:"allocateOnce,omitempty"`
+	// AllocatePolicy represents the allocation policy of reserved resources that Reservation expects.
+	// +kubebuilder:validation:Enum=Aligned;Restricted
+	// +optional
+	AllocatePolicy ReservationAllocatePolicy `json:"allocatePolicy,omitempty"`
+	// Unschedulable controls reservation schedulability of new pods. By default, reservation is schedulable.
+	// +optional
+	Unschedulable bool `json:"unschedulable,omitempty"`
 }
+
+type ReservationAllocatePolicy string
+
+const (
+	// ReservationAllocatePolicyDefault means that there is no restriction on the policy of reserved resources,
+	// and allocated from the Reservation first, and if it is insufficient, it is allocated from the node.
+	ReservationAllocatePolicyDefault ReservationAllocatePolicy = ""
+	// ReservationAllocatePolicyAligned indicates that the Pod allocates resources from the Reservation first.
+	// If the remaining resources of the Reservation are insufficient, it can be allocated from the node,
+	// but it is required to strictly follow the resource specifications of the Pod.
+	// This can be used to avoid the problem that a Pod uses multiple Reservations at the same time.
+	ReservationAllocatePolicyAligned ReservationAllocatePolicy = "Aligned"
+	// ReservationAllocatePolicyRestricted means that the resources
+	// requested by the Pod overlap with the resources reserved by the Reservation,
+	// then these intersection resources can only be allocated from the Reservation,
+	// but resources declared in Pods but not reserved in Reservations can be allocated from Nodes.
+	// ReservationAllocatePolicyRestricted includes the semantics of ReservationAllocatePolicyAligned.
+	ReservationAllocatePolicyRestricted ReservationAllocatePolicy = "Restricted"
+)
 
 // ReservationTemplateSpec describes the data a Reservation should have when created from a template
 type ReservationTemplateSpec struct {
