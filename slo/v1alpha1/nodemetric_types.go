@@ -24,6 +24,17 @@ import (
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
 // NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
 
+// default NodeMemoryCollectPolicy is usageWithoutPageCache
+// +kubebuilder:validation:Enum=usageWithHotPageCache;usageWithoutPageCache;usageWithPageCache
+type NodeMemoryCollectPolicy string
+
+const (
+	UsageWithoutPageCache NodeMemoryCollectPolicy = "usageWithoutPageCache"
+	UsageWithHotPageCache NodeMemoryCollectPolicy = "usageWithHotPageCache"
+	// TODO(BUPT-wxq): implement the UsageWithPageCache policy
+	UsageWithPageCache NodeMemoryCollectPolicy = "usageWithPageCache"
+)
+
 type NodeMetricInfo struct {
 	// NodeUsage is the total resource usage of node
 	NodeUsage ResourceMap `json:"nodeUsage,omitempty"`
@@ -45,8 +56,23 @@ type PodMetricInfo struct {
 	Name      string      `json:"name,omitempty"`
 	Namespace string      `json:"namespace,omitempty"`
 	PodUsage  ResourceMap `json:"podUsage,omitempty"`
+	// Priority class of the application
+	Priority apiext.PriorityClass `json:"priority,omitempty"`
+	// QoS class of the application
+	QoS apiext.QoSClass `json:"qos,omitempty"`
 	// Third party extensions for PodMetric
 	Extensions *ExtensionsMap `json:"extensions,omitempty"`
+}
+
+type HostApplicationMetricInfo struct {
+	// Name of the host application
+	Name string `json:"name,omitempty"`
+	// Resource usage of the host application
+	Usage ResourceMap `json:"usage,omitempty"`
+	// Priority class of the application
+	Priority apiext.PriorityClass `json:"priority,omitempty"`
+	// QoS class of the application
+	QoS apiext.QoSClass `json:"qos,omitempty"`
 }
 
 // NodeMetricSpec defines the desired state of NodeMetric
@@ -63,6 +89,8 @@ type NodeMetricCollectPolicy struct {
 	ReportIntervalSeconds *int64 `json:"reportIntervalSeconds,omitempty"`
 	// NodeAggregatePolicy represents the target grain of node aggregated usage
 	NodeAggregatePolicy *AggregatePolicy `json:"nodeAggregatePolicy,omitempty"`
+	// NodeMemoryPolicy represents apply which method collect memory info
+	NodeMemoryCollectPolicy *NodeMemoryCollectPolicy `json:"nodeMemoryCollectPolicy,omitempty"`
 }
 
 type AggregatePolicy struct {
@@ -85,6 +113,9 @@ type NodeMetricStatus struct {
 
 	// PodsMetric contains the metrics for pods belong to this node.
 	PodsMetric []*PodMetricInfo `json:"podsMetric,omitempty"`
+
+	// HostApplicationMetric contains the metrics of out-out-band applications on node.
+	HostApplicationMetric []*HostApplicationMetricInfo `json:"hostApplicationMetric,omitempty"`
 
 	// ProdReclaimableMetric is the indicator statistics of Prod type resources reclaimable
 	ProdReclaimableMetric *ReclaimableMetric `json:"prodReclaimableMetric,omitempty"`

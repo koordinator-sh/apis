@@ -17,7 +17,9 @@ limitations under the License.
 package v1alpha1
 
 import (
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
@@ -26,8 +28,27 @@ import (
 // CPUQOS enables cpu qos features.
 type CPUQOS struct {
 	// group identity value for pods, default = 0
+	// NOTE: It takes effect if cpuPolicy = "groupIdentity".
 	GroupIdentity *int64 `json:"groupIdentity,omitempty" validate:"omitempty,min=-1,max=2"`
+	// cpu.idle value for pods, default = 0.
+	// `1` means using SCHED_IDLE.
+	// CGroup Idle (introduced since mainline Linux 5.15): https://lore.kernel.org/lkml/162971078674.25758.15464079371945307825.tip-bot2@tip-bot2/#r
+	// NOTE: It takes effect if cpuPolicy = "coreSched".
+	SchedIdle *int64 `json:"schedIdle,omitempty" validate:"omitempty,min=0,max=1"`
+	// whether pods of the QoS class can expel the cgroup idle pods at the SMT-level. default = false
+	// If set to true, pods of this QoS will use a dedicated core sched group for noise clean with the SchedIdle pods.
+	// NOTE: It takes effect if cpuPolicy = "coreSched".
+	CoreExpeller *bool `json:"coreExpeller,omitempty"`
 }
+
+type CPUQOSPolicy string
+
+const (
+	// CPUQOSPolicyGroupIdentity indicates the Group Identity is applied to ensure the CPU QoS.
+	CPUQOSPolicyGroupIdentity CPUQOSPolicy = "groupIdentity"
+	// CPUQOSPolicyCoreSched indicates the Linux Core Scheduling and CGroup Idle is applied to ensure the CPU QoS.
+	CPUQOSPolicyCoreSched CPUQOSPolicy = "coreSched"
+)
 
 // MemoryQOS enables memory qos features.
 type MemoryQOS struct {
@@ -183,9 +204,51 @@ type ResourceQOS struct {
 	MemoryQOS  *MemoryQOSCfg  `json:"memoryQOS,omitempty"`
 	BlkIOQOS   *BlkIOQOSCfg   `json:"blkioQOS,omitempty"`
 	ResctrlQOS *ResctrlQOSCfg `json:"resctrlQOS,omitempty"`
+	NetworkQOS *NetworkQOSCfg `json:"networkQOS,omitempty"`
+}
+
+type NetworkQOSCfg struct {
+	Enable     *bool `json:"enable,omitempty"`
+	NetworkQOS `json:",inline"`
+}
+
+type NetworkQOS struct {
+	// IngressRequest describes the minimum network bandwidth guaranteed in the ingress direction.
+	// unit: bps(bytes per second), two expressions are supported，int and string,
+	// int: percentage based on total bandwidth，valid in 0-100
+	// string: a specific network bandwidth value, eg: 50M.
+	// +kubebuilder:default=0
+	IngressRequest *intstr.IntOrString `json:"ingressRequest,omitempty"`
+	// IngressLimit describes the maximum network bandwidth can be used in the ingress direction,
+	// unit: bps(bytes per second), two expressions are supported，int and string,
+	// int: percentage based on total bandwidth，valid in 0-100
+	// string: a specific network bandwidth value, eg: 50M.
+	// +kubebuilder:default=100
+	IngressLimit *intstr.IntOrString `json:"ingressLimit,omitempty"`
+
+	// EgressRequest describes the minimum network bandwidth guaranteed in the egress direction.
+	// unit: bps(bytes per second), two expressions are supported，int and string,
+	// int: percentage based on total bandwidth，valid in 0-100
+	// string: a specific network bandwidth value, eg: 50M.
+	// +kubebuilder:default=0
+	EgressRequest *intstr.IntOrString `json:"egressRequest,omitempty"`
+	// EgressLimit describes the maximum network bandwidth can be used in the egress direction,
+	// unit: bps(bytes per second), two expressions are supported，int and string,
+	// int: percentage based on total bandwidth，valid in 0-100
+	// string: a specific network bandwidth value, eg: 50M.
+	// +kubebuilder:default=100
+	EgressLimit *intstr.IntOrString `json:"egressLimit,omitempty"`
+}
+
+type ResourceQOSPolicies struct {
+	// applied policy for the CPU QoS, default = "groupIdentity"
+	CPUPolicy *CPUQOSPolicy `json:"cpuPolicy,omitempty"`
 }
 
 type ResourceQOSStrategy struct {
+	// Policies of pod QoS.
+	Policies *ResourceQOSPolicies `json:"policies,omitempty"`
+
 	// ResourceQOS for LSR pods.
 	LSRClass *ResourceQOS `json:"lsrClass,omitempty"`
 
@@ -207,6 +270,13 @@ type CPUSuppressPolicy string
 const (
 	CPUSetPolicy      CPUSuppressPolicy = "cpuset"
 	CPUCfsQuotaPolicy CPUSuppressPolicy = "cfsQuota"
+)
+
+type CPUEvictPolicy string
+
+const (
+	EvictByRealLimitPolicy   CPUEvictPolicy = "evictByRealLimit"
+	EvictByAllocatablePolicy CPUEvictPolicy = "evictByAllocatable"
 )
 
 type ResourceThresholdStrategy struct {
@@ -241,6 +311,9 @@ type ResourceThresholdStrategy struct {
 	// when avg(cpuusage) > CPUEvictThresholdPercent, will start to evict pod by cpu,
 	// and avg(cpuusage) is calculated based on the most recent CPUEvictTimeWindowSeconds data
 	CPUEvictTimeWindowSeconds *int64 `json:"cpuEvictTimeWindowSeconds,omitempty" validate:"omitempty,gt=0"`
+	// CPUEvictPolicy defines the policy for the BECPUEvict feature.
+	// Default: `evictByRealLimit`.
+	CPUEvictPolicy CPUEvictPolicy `json:"cpuEvictPolicy,omitempty"`
 }
 
 // ResctrlQOSCfg stores node-level config of resctrl qos
@@ -303,6 +376,9 @@ type SystemStrategy struct {
 	WatermarkScaleFactor *int64 `json:"watermarkScaleFactor,omitempty" validate:"omitempty,gt=0,max=400"`
 	// /sys/kernel/mm/memcg_reaper/reap_background
 	MemcgReapBackGround *int64 `json:"memcgReapBackGround,omitempty" validate:"omitempty,min=0,max=1"`
+
+	// TotalNetworkBandwidth indicates the overall network bandwidth, cluster manager can set this field, and default value taken from /sys/class/net/${NIC_NAME}/speed, unit: Mbps
+	TotalNetworkBandwidth resource.Quantity `json:"totalNetworkBandwidth,omitempty"`
 }
 
 // NodeSLOSpec defines the desired state of NodeSLO
@@ -317,6 +393,8 @@ type NodeSLOSpec struct {
 	SystemStrategy *SystemStrategy `json:"systemStrategy,omitempty"`
 	// Third party extensions for NodeSLO
 	Extensions *ExtensionsMap `json:"extensions,omitempty"`
+	// QoS management for out-of-band applications
+	HostApplications []HostApplicationSpec `json:"hostApplications,omitempty"`
 }
 
 // NodeSLOStatus defines the observed state of NodeSLO

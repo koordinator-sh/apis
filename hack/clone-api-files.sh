@@ -11,6 +11,7 @@ API_PATHS_MAP=(
     "apis/scheme:scheme"
     "apis/extension:extension"
     "apis/scheduling:scheduling"
+    "apis/quota:quota"
 )
 
 help() {

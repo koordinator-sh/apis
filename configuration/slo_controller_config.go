@@ -30,6 +30,8 @@ const (
 	ResourceQOSConfigKey       = "resource-qos-config"
 	CPUBurstConfigKey          = "cpu-burst-config"
 	SystemConfigKey            = "system-config"
+	HostApplicationConfigKey   = "host-application-config"
+	CPUNormalizationConfigKey  = "cpu-normalization-config"
 )
 
 // +k8s:deepcopy-gen=true
@@ -86,6 +88,18 @@ type NodeSystemStrategy struct {
 type SystemCfg struct {
 	ClusterStrategy *slov1alpha1.SystemStrategy `json:"clusterStrategy,omitempty"`
 	NodeStrategies  []NodeSystemStrategy        `json:"nodeStrategies,omitempty" validate:"dive"`
+}
+
+// +k8s:deepcopy-gen=true
+type NodeHostApplicationCfg struct {
+	NodeCfgProfile `json:",inline"`
+	Applications   []slov1alpha1.HostApplicationSpec `json:"applications,omitempty"`
+}
+
+// +k8s:deepcopy-gen=true
+type HostApplicationCfg struct {
+	Applications []slov1alpha1.HostApplicationSpec `json:"applications,omitempty"`
+	NodeConfigs  []NodeHostApplicationCfg          `json:"nodeConfigs,omitempty"`
 }
 
 // +k8s:deepcopy-gen=true
@@ -159,11 +173,29 @@ func (in *NodeExtensionStrategy) DeepCopy() *NodeExtensionStrategy {
 	return out
 }
 
+// CalculatePolicy defines the calculate policy for resource overcommitment.
+// Default is "usage".
 type CalculatePolicy string
 
 const (
-	CalculateByPodUsage   CalculatePolicy = "usage"
+	// CalculateByPodUsage is the calculate policy according to the pod resource usage.
+	// When the policy="usage", the low-priority (LP) resources are calculated according to the high-priority (HP) pods'
+	// usages, so LP pod can reclaim the requested but unused resources of the HP pods.
+	// It is the default policy where the resources are over-committed between priority bands.
+	CalculateByPodUsage CalculatePolicy = "usage"
+	// CalculateByPodRequest is the calculate policy according to the pod resource request.
+	// When the policy="request", the low-priority (LP) resources are calculated according to the high-priority (HP)
+	// pods' requests, so LP pod can allocate the unallocated resources of the HP pods but can NOT reclaim the
+	// requested but unused resources of the HP pods.
+	// It is the policy where the resources are NOT over-committed between priority bands.
 	CalculateByPodRequest CalculatePolicy = "request"
+	// CalculateByPodMaxUsageRequest is the calculate policy according to the maximum of the pod usage and request.
+	// When the policy="maxUsageRequest", the low-priority (LP) resources are calculated according to the sum of the
+	// high-priority (HP) pods' maximum of its usage and its request, so LP pod can allocate the resources both
+	// unallocated and unused by the HP pods.
+	// It is the conservative policy where the resources are NOT over-committed between priority bands while HP's usage
+	// is also protected from the overcommitment.
+	CalculateByPodMaxUsageRequest CalculatePolicy = "maxUsageRequest"
 )
 
 // +k8s:deepcopy-gen=true
@@ -195,17 +227,23 @@ func (in *ExtraFields) DeepCopy() *ExtraFields {
 // ColocationStrategy defines the strategy for node colocation.
 // +k8s:deepcopy-gen=true
 type ColocationStrategy struct {
-	Enable                         *bool                        `json:"enable,omitempty"`
-	MetricAggregateDurationSeconds *int64                       `json:"metricAggregateDurationSeconds,omitempty" validate:"omitempty,min=1"`
-	MetricReportIntervalSeconds    *int64                       `json:"metricReportIntervalSeconds,omitempty" validate:"omitempty,min=1"`
-	MetricAggregatePolicy          *slov1alpha1.AggregatePolicy `json:"metricAggregatePolicy,omitempty"`
+	Enable                         *bool                                `json:"enable,omitempty"`
+	MetricAggregateDurationSeconds *int64                               `json:"metricAggregateDurationSeconds,omitempty" validate:"omitempty,min=1"`
+	MetricReportIntervalSeconds    *int64                               `json:"metricReportIntervalSeconds,omitempty" validate:"omitempty,min=1"`
+	MetricAggregatePolicy          *slov1alpha1.AggregatePolicy         `json:"metricAggregatePolicy,omitempty"`
+	MetricMemoryCollectPolicy      *slov1alpha1.NodeMemoryCollectPolicy `json:"metricMemoryCollectPolicy,omitempty"`
 
-	CPUReclaimThresholdPercent    *int64           `json:"cpuReclaimThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
+	CPUReclaimThresholdPercent *int64 `json:"cpuReclaimThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
+	// CPUCalculatePolicy determines the calculation policy of the CPU resources for the Batch pods.
+	// Supported: "usage" (default), "maxUsageRequest".
+	CPUCalculatePolicy            *CalculatePolicy `json:"cpuCalculatePolicy,omitempty"`
 	MemoryReclaimThresholdPercent *int64           `json:"memoryReclaimThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
-	MemoryCalculatePolicy         *CalculatePolicy `json:"memoryCalculatePolicy,omitempty"`
-	DegradeTimeMinutes            *int64           `json:"degradeTimeMinutes,omitempty" validate:"omitempty,min=1"`
-	UpdateTimeThresholdSeconds    *int64           `json:"updateTimeThresholdSeconds,omitempty" validate:"omitempty,min=1"`
-	ResourceDiffThreshold         *float64         `json:"resourceDiffThreshold,omitempty" validate:"omitempty,gt=0,max=1"`
+	// MemoryCalculatePolicy determines the calculation policy of the memory resources for the Batch pods.
+	// Supported: "usage" (default), "request", "maxUsageRequest".
+	MemoryCalculatePolicy      *CalculatePolicy `json:"memoryCalculatePolicy,omitempty"`
+	DegradeTimeMinutes         *int64           `json:"degradeTimeMinutes,omitempty" validate:"omitempty,min=1"`
+	UpdateTimeThresholdSeconds *int64           `json:"updateTimeThresholdSeconds,omitempty" validate:"omitempty,min=1"`
+	ResourceDiffThreshold      *float64         `json:"resourceDiffThreshold,omitempty" validate:"omitempty,gt=0,max=1"`
 
 	// MidCPUThresholdPercent defines the maximum percentage of the Mid-tier cpu resource dividing the node allocatable.
 	// MidCPUAllocatable <= NodeCPUAllocatable * MidCPUThresholdPercent / 100.
@@ -215,6 +253,44 @@ type ColocationStrategy struct {
 	MidMemoryThresholdPercent *int64 `json:"midMemoryThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
 
 	ColocationStrategyExtender `json:",inline"` // for third-party extension
+}
+
+// CPUNormalizationCfg is the cluster-level configuration of the CPU normalization strategy.
+// +k8s:deepcopy-gen=true
+type CPUNormalizationCfg struct {
+	CPUNormalizationStrategy `json:",inline"`
+	NodeConfigs              []NodeCPUNormalizationCfg `json:"nodeConfigs,omitempty" validate:"dive"`
+}
+
+// NodeCPUNormalizationCfg is the node-level configuration of the CPU normalization strategy.
+// +k8s:deepcopy-gen=true
+type NodeCPUNormalizationCfg struct {
+	NodeCfgProfile `json:",inline"`
+	CPUNormalizationStrategy
+}
+
+// CPUNormalizationStrategy is the CPU normalization strategy.
+// +k8s:deepcopy-gen=true
+type CPUNormalizationStrategy struct {
+	// Enable defines whether the cpu normalization is enabled.
+	// If set to false, the node cpu normalization ratio will be removed.
+	Enable *bool `json:"enable,omitempty"`
+	// RatioModel defines the cpu normalization ratio of each CPU model.
+	// It maps the CPUModel of BasicInfo into the ratios.
+	RatioModel map[string]ModelRatioCfg `json:"ratioModel,omitempty"`
+}
+
+// ModelRatioCfg defines the cpu normalization ratio of a CPU model.
+// +k8s:deepcopy-gen=true
+type ModelRatioCfg struct {
+	// BaseRatio defines the ratio of which the CPU neither enables Hyper Thread, nor the Turbo.
+	BaseRatio *float64 `json:"baseRatio,omitempty"`
+	// HyperThreadEnabledRatio defines the ratio of which the CPU enables the Hyper Thread.
+	HyperThreadEnabledRatio *float64 `json:"hyperThreadEnabledRatio,omitempty"`
+	// TurboEnabledRatio defines the ratio of which the CPU enables the Turbo.
+	TurboEnabledRatio *float64 `json:"turboEnabledRatio,omitempty"`
+	// HyperThreadTurboEnabledRatio defines the ratio of which the CPU enables the Hyper Thread and Turbo.
+	HyperThreadTurboEnabledRatio *float64 `json:"hyperThreadTurboEnabledRatio,omitempty"`
 }
 
 /*
@@ -244,6 +320,7 @@ data:
           "15m"
         ]
       },
+      "metricMemoryCollectPolicy": "usageWithoutPageCache",
       "cpuReclaimThresholdPercent": 60,
       "memoryReclaimThresholdPercent": 65,
       "memoryCalculatePolicy": "usage",
@@ -450,6 +527,72 @@ data:
             }
           },
           "cpuEvictBEUsageThresholdPercent": 80
+        }
+      ]
+    }
+  host-application-config: |
+    {
+      "applications": [
+        {
+          "name": "nginx",
+          "priority": "koord-prod",
+          "qos": "LS",
+          "cgroupPath": {
+            "base": "CgroupRoot",
+            "parentDir": "host-latency-sensitive/",
+            "relativePath": "nginx/",
+          }
+        }
+      ],
+      "nodeConfigs": [
+        {
+          "name": "colocation-pool",
+          "nodeSelector": {
+            "matchLabels": {
+              "node-pool": "colocation"
+            }
+          },
+          "applications": [
+            {
+              "name": "nginx",
+              "priority": "koord-prod",
+              "qos": "LS",
+              "cgroupPath": {
+                "base": "CgroupRoot",
+                "parentDir": "host-latency-sensitive/",
+                "relativePath": "nginx/",
+              }
+            }
+          ]
+        }
+      ]
+    }
+  cpu-normalization-config: |
+    {
+      "enable": false,
+      "ratioModel": {
+        "Intel(R) Xeon(R) Platinum XXX CPU @ 2.50GHz": {
+          "baseRatio": 1.5,
+          "hyperThreadEnabledRatio": 1.0,
+          "turboEnabledRatio": 1.8,
+          "hyperThreadTurboEnabledRatio": 1.2
+        },
+        "Intel(R) Xeon(R) Platinum YYY CPU @ 2.50GHz": {
+          "baseRatio": 1.8,
+          "hyperThreadEnabledRatio": 1.2,
+          "turboEnabledRatio": 2.16,
+          "hyperThreadTurboEnabledRatio": 1.44
+        }
+      },
+      "nodeConfigs": [
+        {
+          "name": "test",
+          "nodeSelector": {
+            "matchLabels": {
+              "AAA": "BBB"
+            }
+          },
+          "enable": true
         }
       ]
     }

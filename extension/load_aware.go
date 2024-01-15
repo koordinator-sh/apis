@@ -21,17 +21,12 @@ import (
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
-	schedulingv1alpha1 "github.com/koordinator-sh/apis/scheduling/v1alpha1"
 )
 
 const (
 	// AnnotationCustomUsageThresholds represents the user-defined resource utilization threshold.
 	// For specific value definitions, see CustomUsageThresholds
 	AnnotationCustomUsageThresholds = SchedulingDomainPrefix + "/usage-thresholds"
-
-	// AnnotationDeviceAllocated represents the device allocated by the pod
-	AnnotationDeviceAllocated = SchedulingDomainPrefix + "/device-allocated"
 )
 
 // CustomUsageThresholds supports user-defined node resource utilization thresholds.
@@ -64,64 +59,4 @@ func GetCustomUsageThresholds(node *corev1.Node) (*CustomUsageThresholds, error)
 		return nil, err
 	}
 	return usageThresholds, nil
-}
-
-// DeviceAllocations would be injected into Pod as form of annotation during Pre-bind stage.
-/*
-{
-  "gpu": [
-    {
-      "minor": 0,
-      "resources": {
-        "koordinator.sh/gpu-core": 100,
-        "koordinator.sh/gpu-mem-ratio": 100,
-        "koordinator.sh/gpu-mem": "16Gi"
-      }
-    },
-    {
-      "minor": 1,
-      "resources": {
-        "koordinator.sh/gpu-core": 100,
-        "koordinator.sh/gpu-mem-ratio": 100,
-        "koordinator.sh/gpu-mem": "16Gi"
-      }
-    }
-  ]
-}
-*/
-type DeviceAllocations map[schedulingv1alpha1.DeviceType][]*DeviceAllocation
-
-type DeviceAllocation struct {
-	Minor     int32               `json:"minor"`
-	Resources corev1.ResourceList `json:"resources"`
-	Extension json.RawMessage     `json:"extension,omitempty"`
-}
-
-func GetDeviceAllocations(podAnnotations map[string]string) (DeviceAllocations, error) {
-	deviceAllocations := DeviceAllocations{}
-	data, ok := podAnnotations[AnnotationDeviceAllocated]
-	if !ok {
-		return nil, nil
-	}
-	err := json.Unmarshal([]byte(data), &deviceAllocations)
-	if err != nil {
-		return nil, err
-	}
-	return deviceAllocations, nil
-}
-
-func SetDeviceAllocations(obj metav1.Object, allocations DeviceAllocations) error {
-	annotations := obj.GetAnnotations()
-	if annotations == nil {
-		annotations = map[string]string{}
-	}
-
-	data, err := json.Marshal(allocations)
-	if err != nil {
-		return err
-	}
-
-	annotations[AnnotationDeviceAllocated] = string(data)
-	obj.SetAnnotations(annotations)
-	return nil
 }

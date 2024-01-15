@@ -45,7 +45,8 @@ type DeviceInfo struct {
 	// ModuleID represents the physical id of Device
 	ModuleID *int32 `json:"moduleID,omitempty"`
 	// Health indicates whether the device is normal
-	Health bool `json:"health,omitempty"`
+	// +kubebuilder:default=false
+	Health bool `json:"health"`
 	// Resources is a set of (resource name, quantity) pairs
 	Resources corev1.ResourceList `json:"resources,omitempty"`
 	// Topology represents the topology information about the device
@@ -55,19 +56,27 @@ type DeviceInfo struct {
 }
 
 type DeviceTopology struct {
-	SocketID int32  `json:"socketID"`
-	NodeID   int32  `json:"nodeID"`
-	PCIEID   int32  `json:"pcieID"`
-	BusID    string `json:"busID,omitempty"`
+	// SocketID is the ID of CPU Socket to which the device belongs
+	SocketID int32 `json:"socketID"`
+	// NodeID is the ID of NUMA Node to which the device belongs, it should be unique across different CPU Sockets
+	NodeID int32 `json:"nodeID"`
+	// PCIEID is the ID of PCIE Switch to which the device is connected, it should be unique across difference NUMANodes
+	PCIEID string `json:"pcieID"`
+	// BusID is the domain:bus:device.function formatted identifier of PCI/PCIE device
+	BusID string `json:"busID,omitempty"`
 }
 
 type VirtualFunctionGroup struct {
+	// Labels represents the Virtual Function properties that can be used to organize and categorize (scope and select) objects
 	Labels map[string]string `json:"labels,omitempty"`
-	VFs    []VirtualFunction `json:"vfs,omitempty"`
+	// VFs are the virtual function devices which belong to the group
+	VFs []VirtualFunction `json:"vfs,omitempty"`
 }
 
 type VirtualFunction struct {
-	Minor int32  `json:"minor"`
+	// Minor represents the Minor number of VirtualFunction, starting from 0, used to identify virtual function.
+	Minor int32 `json:"minor"`
+	// BusID is the domain:bus:device.function formatted identifier of PCI/PCIE virtual function device
 	BusID string `json:"busID,omitempty"`
 }
 
