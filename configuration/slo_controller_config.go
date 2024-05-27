@@ -152,7 +152,7 @@ func (in *ExtensionCfg) DeepCopy() *ExtensionCfg {
 // +k8s:deepcopy-gen=false
 type NodeExtensionStrategy struct {
 	NodeCfgProfile `json:",inline"`
-	NodeStrategy   interface{} // for third-party extension
+	NodeStrategy   interface{} `json:",inline"` // for third-party extension
 }
 
 func (in *NodeExtensionStrategy) DeepCopyInto(out *NodeExtensionStrategy) {
@@ -484,7 +484,9 @@ data:
               {
                 "ioCfg": {
                   "readLatency": 3000,
-                  "writeLatency": 3000
+                  "writeLatency": 3000,
+                  "readLatencyPercent": 95,
+                  "writeLatencyPercent": 95
                 },
                 "name": "ackdistro-pool",
                 "type": "volumegroup"
