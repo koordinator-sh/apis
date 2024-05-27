@@ -38,6 +38,9 @@ const (
 
 	// AnnotationReservationAffinity represents the constraints of Pod selection Reservation
 	AnnotationReservationAffinity = SchedulingDomainPrefix + "/reservation-affinity"
+
+	// AnnotationReservationRestrictedOptions represent the Reservation Restricted options
+	AnnotationReservationRestrictedOptions = SchedulingDomainPrefix + "/reservation-restricted-options"
 )
 
 type ReservationAllocated struct {
@@ -65,6 +68,14 @@ type ReservationAffinitySelector struct {
 	// Required. A list of reservation selector terms. The terms are ORed.
 	// Reuse corev1.NodeSelectorTerm to avoid defining too many repeated definitions.
 	ReservationSelectorTerms []corev1.NodeSelectorTerm `json:"reservationSelectorTerms,omitempty"`
+}
+
+type ReservationRestrictedOptions struct {
+	// Resources means that when the Pod intersects with these resources,
+	// it can only allocate the reserved amount at most.
+	// If the Reservation's AllocatePolicy is Restricted, and no resources configured,
+	// by default the resources equal all reserved resources by the Reservation.
+	Resources []corev1.ResourceName `json:"resources,omitempty"`
 }
 
 func GetReservationAllocated(pod *corev1.Pod) (*ReservationAllocated, error) {
@@ -100,8 +111,12 @@ func IsReservationAllocateOnce(r *schedulingv1alpha1.Reservation) bool {
 }
 
 func GetReservationAffinity(annotations map[string]string) (*ReservationAffinity, error) {
+	s, ok := annotations[AnnotationReservationAffinity]
+	if !ok {
+		return nil, nil
+	}
 	var affinity ReservationAffinity
-	if s := annotations[AnnotationReservationAffinity]; s != "" {
+	if s != "" {
 		if err := json.Unmarshal([]byte(s), &affinity); err != nil {
 			return nil, err
 		}
@@ -119,6 +134,30 @@ func SetReservationAffinity(obj metav1.Object, affinity *ReservationAffinity) er
 		annotations = map[string]string{}
 	}
 	annotations[AnnotationReservationAffinity] = string(data)
+	obj.SetAnnotations(annotations)
+	return nil
+}
+
+func GetReservationRestrictedOptions(annotations map[string]string) (*ReservationRestrictedOptions, error) {
+	var options ReservationRestrictedOptions
+	if s, ok := annotations[AnnotationReservationRestrictedOptions]; ok && s != "" {
+		if err := json.Unmarshal([]byte(s), &options); err != nil {
+			return nil, err
+		}
+	}
+	return &options, nil
+}
+
+func SetReservationRestrictedOptions(obj metav1.Object, options *ReservationRestrictedOptions) error {
+	data, err := json.Marshal(options)
+	if err != nil {
+		return err
+	}
+	annotations := obj.GetAnnotations()
+	if annotations == nil {
+		annotations = map[string]string{}
+	}
+	annotations[AnnotationReservationRestrictedOptions] = string(data)
 	obj.SetAnnotations(annotations)
 	return nil
 }

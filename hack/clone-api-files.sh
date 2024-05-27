@@ -4,14 +4,16 @@ set -e
 
 # Define the relative path of API src and dst
 API_PATHS_MAP=(
+    "apis/analysis:analysis"
     "apis/config:config"
     "apis/configuration:configuration"
-    "apis/runtime:runtime"
-    "apis/slo:slo"
-    "apis/scheme:scheme"
     "apis/extension:extension"
-    "apis/scheduling:scheduling"
     "apis/quota:quota"
+    "apis/runtime:runtime"
+    "apis/scheduling:scheduling"
+    "apis/scheme:scheme"
+    "apis/slo:slo"
+    "apis/thirdparty:thirdparty"
 )
 
 help() {
