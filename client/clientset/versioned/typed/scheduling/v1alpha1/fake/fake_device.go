@@ -24,7 +24,6 @@ import (
 	v1alpha1 "github.com/koordinator-sh/apis/scheduling/v1alpha1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
-	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
 	testing "k8s.io/client-go/testing"
@@ -35,9 +34,9 @@ type FakeDevices struct {
 	Fake *FakeSchedulingV1alpha1
 }
 
-var devicesResource = schema.GroupVersionResource{Group: "scheduling.koordinator.sh", Version: "v1alpha1", Resource: "devices"}
+var devicesResource = v1alpha1.SchemeGroupVersion.WithResource("devices")
 
-var devicesKind = schema.GroupVersionKind{Group: "scheduling.koordinator.sh", Version: "v1alpha1", Kind: "Device"}
+var devicesKind = v1alpha1.SchemeGroupVersion.WithKind("Device")
 
 // Get takes name of the device, and returns the corresponding device object, and an error if there is any.
 func (c *FakeDevices) Get(ctx context.Context, name string, options v1.GetOptions) (result *v1alpha1.Device, err error) {
@@ -110,7 +109,7 @@ func (c *FakeDevices) UpdateStatus(ctx context.Context, device *v1alpha1.Device,
 // Delete takes name of the device and deletes it. Returns an error if one occurs.
 func (c *FakeDevices) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
-		Invokes(testing.NewRootDeleteAction(devicesResource, name), &v1alpha1.Device{})
+		Invokes(testing.NewRootDeleteActionWithOptions(devicesResource, name, opts), &v1alpha1.Device{})
 	return err
 }
 
