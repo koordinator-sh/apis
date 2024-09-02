@@ -2,26 +2,21 @@
 
 set -e
 
-# Define the relative path of API src and dst
-API_PATHS_MAP=(
-    "apis/analysis:analysis"
-    "apis/config:config"
-    "apis/configuration:configuration"
-    "apis/extension:extension"
-    "apis/quota:quota"
-    "apis/runtime:runtime"
-    "apis/scheduling:scheduling"
-    "apis/scheme:scheme"
-    "apis/slo:slo"
-    "apis/thirdparty:thirdparty"
-)
+API_MAP_FILE_DIR=$( cd $(dirname $0); pwd )
+API_MAP_FILE_PATH="${API_MAP_FILE_DIR}/api-files.sh"
+source ${API_MAP_FILE_PATH}
 
 help() {
     echo "command format error, usage example"
     echo "$0 \${koordinator_version_tag}"
 }
 
-KOORDINATOR_REPO="https://github.com/koordinator-sh/koordinator.git"
+KOORDINATOR_REPO=${ENV_KOORDINATOR_REPO}
+
+if [ -z "${KOORDINATOR_REPO}" ]; then
+    KOORDINATOR_REPO="https://github.com/koordinator-sh/koordinator.git"
+fi
+
 VERSION_TAG="$1"
 if [[ -z ${VERSION_TAG} ]]; then
     help
@@ -80,6 +75,14 @@ function remove_outdated_api_files() {
         fi
     done
 }
+
+echo ">> remove excluded files from ${KOORDINATOR_REPO_DIR}"
+for excluded_path in "${EXCLUDED_PATHS[@]}";
+do
+    rm_path="${KOORDINATOR_REPO_DIR}/${excluded_path}"
+    rm -rf ${rm_path}
+    echo ">> remove excluded file" ${rm_path}
+done
 
 API_REPO_DIR=$( cd $(dirname $0)/..; pwd )
 
