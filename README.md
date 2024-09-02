@@ -32,6 +32,10 @@ API_PATHS_MAP=(
 make clone KOORD_VERSION=v0.7.0
 ```
 3. generate deepcopy and clients for API files
+
+3.1 (optional) update binary tool versions and clean local binary tools if necessary in Makefile
+
+3.2 generate files
 ```shell script
 make generate
 ```
