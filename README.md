@@ -21,7 +21,7 @@ if you have new features to develop. API Changes will be synced to `koordinator-
 To update Koordinator API repo.
 1. (optional) add more api directories to clone, append source and destination to API_PATHS_MAP in clone-api-files.sh
 ```shell script
-# vim hack/clone-api-files.sh
+# vim hack/api-files.sh
 API_PATHS_MAP=(
     "apis/slo:slo"
 )
