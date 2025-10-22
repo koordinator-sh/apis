@@ -328,6 +328,10 @@ type ResourceThresholdStrategy struct {
 	// +kubebuilder:validation:Maximum=100
 	// +kubebuilder:validation:Minimum=0
 	CPUSuppressThresholdPercent *int64 `json:"cpuSuppressThresholdPercent,omitempty" validate:"omitempty,min=0,max=100"`
+	// cpu suppress min percentage (0,100)
+	// +kubebuilder:validation:Maximum=100
+	// +kubebuilder:validation:Minimum=0
+	CPUSuppressMinPercent *int64 `json:"cpuSuppressMinPercent,omitempty" validate:"omitempty,min=0,max=100"`
 	// CPUSuppressPolicy
 	CPUSuppressPolicy CPUSuppressPolicy `json:"cpuSuppressPolicy,omitempty"`
 
@@ -352,9 +356,23 @@ type ResourceThresholdStrategy struct {
 	// when avg(cpuusage) > CPUEvictThresholdPercent, will start to evict pod by cpu,
 	// and avg(cpuusage) is calculated based on the most recent CPUEvictTimeWindowSeconds data
 	CPUEvictTimeWindowSeconds *int64 `json:"cpuEvictTimeWindowSeconds,omitempty" validate:"omitempty,gt=0"`
+
+	// Note: used for feature: CPUEvict
+	// upper: CPU evict threshold percentage (0,100)
+	// +kubebuilder:validation:Maximum=100
+	// +kubebuilder:validation:Minimum=0
+	CPUEvictThresholdPercent *int64 `json:"cpuEvictThresholdPercent,omitempty" validate:"omitempty,min=0,max=100,gtfield=MemoryEvictLowerPercent"`
+	// lower: CPU release util usage under CPUEvictLowerPercent, default = CPUEvictLowerPercent - 2
+	// +kubebuilder:validation:Maximum=100
+	// +kubebuilder:validation:Minimum=0
+	CPUEvictLowerPercent *int64 `json:"cpuEvictLowerPercent,omitempty" validate:"omitempty,min=0,max=100,ltfield=MemoryEvictThresholdPercent"`
+
 	// CPUEvictPolicy defines the policy for the BECPUEvict feature.
 	// Default: `evictByRealLimit`.
 	CPUEvictPolicy CPUEvictPolicy `json:"cpuEvictPolicy,omitempty"`
+
+	// EvictEnabledPriorityThreshold defines the highest priority for the xxxEvict feature.
+	EvictEnabledPriorityThreshold *int32 `json:"evictEnabledPriorityThreshold,omitempty"`
 }
 
 // ResctrlQOSCfg stores node-level config of resctrl qos
@@ -384,7 +402,7 @@ type CPUBurstPolicy string
 const (
 	// CPUBurstNone disables cpu burst policy
 	CPUBurstNone CPUBurstPolicy = "none"
-	// CPUBurstOnly enables cpu burst policy by setting cpu.cfs_burst_us
+	// CPUBurstOnly enables cpu burst policy by setting cpu.cfs_burst_us or cpu.max.burst
 	CPUBurstOnly CPUBurstPolicy = "cpuBurstOnly"
 	// CFSQuotaBurstOnly enables cfs quota burst policy by scale up cpu.cfs_quota_us if pod throttled
 	CFSQuotaBurstOnly CPUBurstPolicy = "cfsQuotaBurstOnly"
@@ -394,7 +412,7 @@ const (
 
 type CPUBurstConfig struct {
 	Policy CPUBurstPolicy `json:"policy,omitempty"`
-	// cpu burst percentage for setting cpu.cfs_burst_us, legal range: [0, 10000], default as 1000 (1000%)
+	// cpu burst percentage for setting cpu.cfs_burst_us in Cgroupv1 or setting cpu.max.burst in Cgroupv2, legal range: [0, 10000], default as 1000 (1000%)
 	// +kubebuilder:validation:Maximum=10000
 	// +kubebuilder:validation:Minimum=0
 	CPUBurstPercent *int64 `json:"cpuBurstPercent,omitempty" validate:"omitempty,min=1,max=10000"`
@@ -412,11 +430,26 @@ type CPUBurstStrategy struct {
 
 type SystemStrategy struct {
 	// for /proc/sys/vm/min_free_kbytes, min_free_kbytes = minFreeKbytesFactor * nodeTotalMemory /10000
+	// Unset by default. 1 means 1/10000. Recommended = 100.
 	MinFreeKbytesFactor *int64 `json:"minFreeKbytesFactor,omitempty" validate:"omitempty,gt=0"`
 	// /proc/sys/vm/watermark_scale_factor
+	// Unset by default. 1 means 1/10000. Recommended = 150.
 	WatermarkScaleFactor *int64 `json:"watermarkScaleFactor,omitempty" validate:"omitempty,gt=0,max=400"`
 	// /sys/kernel/mm/memcg_reaper/reap_background
+	// Unset by default.
 	MemcgReapBackGround *int64 `json:"memcgReapBackGround,omitempty" validate:"omitempty,min=0,max=1"`
+	// /sys/kernel/sched_group_identity_enabled
+	// https://github.com/koordinator-sh/koordinator/pull/1172
+	// 0 to disable, 1 to enable.
+	// Disable (0) when CPUQoS (Group Identity) is manually disabled.
+	SchedGroupIdentityEnabled *int64 `json:"schedGroupIdentityEnabled,omitempty"`
+	// /proc/sys/kernel/sched_idle_saver_wmark
+	// https://www.alibabacloud.com/help/en/alinux/user-guide/group-identity-feature
+	// 1 means 1ns.
+	SchedIdleSaverWmark *int64 `json:"schedIdleSaverWmark,omitempty"`
+	// /sys/kernel/sched_features
+	// Extra scheduling features supported by the kernel.
+	SchedFeatures map[string]bool `json:"schedFeatures,omitempty"`
 
 	// TotalNetworkBandwidth indicates the overall network bandwidth, cluster manager can set this field, and default value taken from /sys/class/net/${NIC_NAME}/speed, unit: Mbps
 	TotalNetworkBandwidth resource.Quantity `json:"totalNetworkBandwidth,omitempty"`
@@ -425,6 +458,7 @@ type SystemStrategy struct {
 // NodeSLOSpec defines the desired state of NodeSLO
 type NodeSLOSpec struct {
 	// BE pods will be limited if node resource usage overload
+	// TODO: ResourceUsedThresholdWithBE need to rename
 	ResourceUsedThresholdWithBE *ResourceThresholdStrategy `json:"resourceUsedThresholdWithBE,omitempty"`
 	// QoS config strategy for pods of different qos-class
 	ResourceQOSStrategy *ResourceQOSStrategy `json:"resourceQOSStrategy,omitempty"`
