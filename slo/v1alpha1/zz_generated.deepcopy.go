@@ -1134,6 +1134,11 @@ func (in *ResourceThresholdStrategy) DeepCopyInto(out *ResourceThresholdStrategy
 		*out = new(int64)
 		**out = **in
 	}
+	if in.CPUSuppressMinPercent != nil {
+		in, out := &in.CPUSuppressMinPercent, &out.CPUSuppressMinPercent
+		*out = new(int64)
+		**out = **in
+	}
 	if in.MemoryEvictThresholdPercent != nil {
 		in, out := &in.MemoryEvictThresholdPercent, &out.MemoryEvictThresholdPercent
 		*out = new(int64)
@@ -1162,6 +1167,21 @@ func (in *ResourceThresholdStrategy) DeepCopyInto(out *ResourceThresholdStrategy
 	if in.CPUEvictTimeWindowSeconds != nil {
 		in, out := &in.CPUEvictTimeWindowSeconds, &out.CPUEvictTimeWindowSeconds
 		*out = new(int64)
+		**out = **in
+	}
+	if in.CPUEvictThresholdPercent != nil {
+		in, out := &in.CPUEvictThresholdPercent, &out.CPUEvictThresholdPercent
+		*out = new(int64)
+		**out = **in
+	}
+	if in.CPUEvictLowerPercent != nil {
+		in, out := &in.CPUEvictLowerPercent, &out.CPUEvictLowerPercent
+		*out = new(int64)
+		**out = **in
+	}
+	if in.EvictEnabledPriorityThreshold != nil {
+		in, out := &in.EvictEnabledPriorityThreshold, &out.EvictEnabledPriorityThreshold
+		*out = new(int32)
 		**out = **in
 	}
 }
@@ -1193,6 +1213,23 @@ func (in *SystemStrategy) DeepCopyInto(out *SystemStrategy) {
 		in, out := &in.MemcgReapBackGround, &out.MemcgReapBackGround
 		*out = new(int64)
 		**out = **in
+	}
+	if in.SchedGroupIdentityEnabled != nil {
+		in, out := &in.SchedGroupIdentityEnabled, &out.SchedGroupIdentityEnabled
+		*out = new(int64)
+		**out = **in
+	}
+	if in.SchedIdleSaverWmark != nil {
+		in, out := &in.SchedIdleSaverWmark, &out.SchedIdleSaverWmark
+		*out = new(int64)
+		**out = **in
+	}
+	if in.SchedFeatures != nil {
+		in, out := &in.SchedFeatures, &out.SchedFeatures
+		*out = make(map[string]bool, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
 	}
 	out.TotalNetworkBandwidth = in.TotalNetworkBandwidth.DeepCopy()
 }
