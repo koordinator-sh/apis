@@ -22,7 +22,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 
 	schedulingv1alpha1 "github.com/koordinator-sh/apis/scheduling/v1alpha1"
 )
@@ -58,6 +58,20 @@ const (
 type ReservationAllocated struct {
 	Name string    `json:"name,omitempty"`
 	UID  types.UID `json:"uid,omitempty"`
+}
+
+func (r *ReservationAllocated) GetName() string {
+	if r == nil {
+		return ""
+	}
+	return r.Name
+}
+
+func (r *ReservationAllocated) GetUID() types.UID {
+	if r == nil {
+		return ""
+	}
+	return r.UID
 }
 
 // ReservationAffinity represents the constraints of Pod selection Reservation
@@ -151,7 +165,7 @@ func RemoveReservationAllocated(pod *corev1.Pod, r metav1.Object) (bool, error) 
 }
 
 func IsReservationAllocateOnce(r *schedulingv1alpha1.Reservation) bool {
-	return pointer.BoolDeref(r.Spec.AllocateOnce, true)
+	return ptr.Deref[bool](r.Spec.AllocateOnce, true)
 }
 
 func GetReservationAffinity(annotations map[string]string) (*ReservationAffinity, error) {
